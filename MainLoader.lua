@@ -1,8 +1,20 @@
--- Universal Sense ESP Hub
+-- Universal ESP Hub
 -- GitHub: https://github.com/yourusername/SenseESP-Hub
 
 -- Load RayField UI
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+if not success then
+    -- Fallback to simple notification
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Error",
+        Text = "Failed to load RayField UI",
+        Duration = 5
+    })
+    return
+end
 
 -- Get current game info
 local PlaceId = game.PlaceId
@@ -13,301 +25,185 @@ local SupportedGames = {
     [101953168527257] = {
         Name = "Spear Fishing Simulator",
         Description = "Fishing game with ocean exploration",
-        Thumbnail = "https://tr.rbxcdn.com/ed1d05a62c32667d0cd15da22eea501f/420/420/Image/Png",
-        Loader = "Games/SpearFishing.lua",
-        Verified = true
+        Loader = "Games/SpearFishing.lua"
     },
     [2753915549] = {
         Name = "Blox Fruits",
         Description = "Anime fighting game with fruits",
-        Thumbnail = "https://tr.rbxcdn.com/9e2b9e0b6c4b8a9b6d4f8c4e4b8f4c4e/420/420/Image/Png",
-        Loader = "Games/BloxFruits.lua",
-        Verified = true
+        Loader = "Games/BloxFruits.lua"
     },
     [286090429] = {
         Name = "Arsenal",
         Description = "FPS shooter game",
-        Thumbnail = "https://tr.rbxcdn.com/4d4e4f4c4a4b4c4d4e4f4a4b4c4d4e4f/420/420/Image/Png",
-        Loader = "Games/Arsenal.lua",
-        Verified = true
+        Loader = "Games/Arsenal.lua"
     },
     [142823291] = {
         Name = "Murder Mystery 2",
         Description = "Murder mystery game",
-        Thumbnail = "https://tr.rbxcdn.com/1d1e1f1a1b1c1d1e1f1a1b1c1d1e1f/420/420/Image/Png",
-        Loader = "Games/MurderMystery2.lua",
-        Verified = true
+        Loader = "Games/MurderMystery2.lua"
     }
 }
 
 -- Function to load modules from GitHub
-local function loadGitHubModule(path)
+local function loadModule(path)
     local url = "https://raw.githubusercontent.com/yourusername/SenseESP-Hub/main/" .. path
     local success, result = pcall(function()
-        return loadstring(game:HttpGet(url, true))()
+        local script = game:HttpGet(url, true)
+        return loadstring(script)
     end)
-    return success and result or nil
+    
+    if success and result then
+        return result
+    else
+        warn("Failed to load module:", path)
+        return nil
+    end
 end
 
 -- Create Main Hub Window
 local Window = Rayfield:CreateWindow({
-    Name = "Sense ESP Universal Hub",
-    LoadingTitle = "Initializing Hub...",
-    LoadingSubtitle = "Checking Game Support",
+    Name = "Universal ESP Hub",
+    LoadingTitle = "Loading Hub...",
+    LoadingSubtitle = "Detecting Game: " .. GameName,
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "SenseESPHub",
-        FileName = "HubConfig"
+        FolderName = "UniversalESPHub",
+        FileName = "Config"
     },
     Discord = {
-        Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
+        Enabled = false
     },
     KeySystem = false
 })
 
--- Home Tab (Game Selection)
-local HomeTab = Window:CreateTab("🏠 Home", 4483362458)
+-- Home Tab
+local HomeTab = Window:CreateTab("🏠 Home")
 
--- Current Game Info Section
+-- Current Game Info
 HomeTab:CreateSection("Current Game")
-
 HomeTab:CreateLabel("Game: " .. GameName)
 HomeTab:CreateLabel("Place ID: " .. PlaceId)
 
--- Check if current game is supported
+-- Check if game is supported
 local CurrentGame = SupportedGames[PlaceId]
 
 if CurrentGame then
     HomeTab:CreateLabel("✅ Status: SUPPORTED")
     
-    -- Game Card
     local GameCard = HomeTab:CreateParagraph({
         Title = CurrentGame.Name,
-        Content = CurrentGame.Description .. "\n\nClick 'Launch Game Script' below to load all features!"
+        Content = CurrentGame.Description
     })
     
-    -- Launch Button
+    -- Launch Game Button
     HomeTab:CreateButton({
-        Name = "🚀 Launch Game Script",
+        Name = "🚀 Launch " .. CurrentGame.Name .. " Script",
         Callback = function()
             Rayfield:Notify({
-                Title = "Loading Game Script",
-                Content = "Loading " .. CurrentGame.Name .. " features...",
+                Title = "Loading...",
+                Content = "Loading " .. CurrentGame.Name .. " features",
                 Duration = 3
             })
             
-            -- Load the game-specific script
-            loadGitHubModule(CurrentGame.Loader)(Window, Rayfield)
-        end
-    })
-    
-    -- Load Universal Features first
-    HomeTab:CreateButton({
-        Name = "📦 Load Universal Features",
-        Callback = function()
-            -- Load Universal ESP
-            local ESPModule = loadGitHubModule("Universal/ESP.lua")
-            if ESPModule then
-                ESPModule(Window, Rayfield)
+            local gameModule = loadModule(CurrentGame.Loader)
+            if gameModule then
+                gameModule(Window, Rayfield)
+            else
                 Rayfield:Notify({
-                    Title = "ESP Loaded",
-                    Content = "Universal ESP features added",
-                    Duration = 3
-                })
-            end
-            
-            -- Load Remote Finder
-            local RemoteFinderModule = loadGitHubModule("Universal/RemoteFinder.lua")
-            if RemoteFinderModule then
-                RemoteFinderModule(Window, Rayfield)
-                Rayfield:Notify({
-                    Title = "Remote Finder Loaded",
-                    Content = "Remote finding features added",
+                    Title = "Error",
+                    Content = "Failed to load game script",
                     Duration = 3
                 })
             end
         end
     })
-    
 else
     HomeTab:CreateLabel("❌ Status: NOT SUPPORTED")
     
-    -- Game not supported message
     local UnsupportedCard = HomeTab:CreateParagraph({
         Title = "Game Not Supported",
-        Content = "This game (" .. GameName .. ") is not in our supported list.\n\nYou can still use universal features below, or request support on our Discord."
-    })
-    
-    -- Universal Features for unsupported games
-    HomeTab:CreateSection("Universal Features")
-    
-    HomeTab:CreateButton({
-        Name = "👁️ Load Universal ESP",
-        Callback = function()
-            local ESPModule = loadGitHubModule("Universal/ESP.lua")
-            if ESPModule then
-                ESPModule(Window, Rayfield)
-                Rayfield:Notify({
-                    Title = "Universal ESP Loaded",
-                    Content = "Basic ESP features enabled",
-                    Duration = 3
-                })
-            end
-        end
-    })
-    
-    HomeTab:CreateButton({
-        Name = "🔍 Load Remote Finder",
-        Callback = function()
-            local RemoteFinderModule = loadGitHubModule("Universal/RemoteFinder.lua")
-            if RemoteFinderModule then
-                RemoteFinderModule(Window, Rayfield)
-                Rayfield:Notify({
-                    Title = "Remote Finder Loaded",
-                    Content = "Remote finding features enabled",
-                    Duration = 3
-                })
-            end
-        end
+        Content = GameName .. " is not in our supported games list.\n\nYou can use the universal features below."
     })
 end
 
--- Supported Games List Tab
-local GamesTab = Window:CreateTab("🎮 Supported Games", 4483362458)
+-- Universal Features Section (Always available)
+HomeTab:CreateSection("Universal Features")
 
-GamesTab:CreateSection("Game Library")
+HomeTab:CreateButton({
+    Name = "👁️ Load ESP System",
+    Callback = function()
+        local espModule = loadModule("Universal/ESP.lua")
+        if espModule then
+            espModule(Window, Rayfield)
+        end
+    end
+})
 
--- Create game cards for all supported games
+HomeTab:CreateButton({
+    Name = "🔍 Load Remote Finder",
+    Callback = function()
+        local remoteModule = loadModule("Universal/RemoteFinder.lua")
+        if remoteModule then
+            remoteModule(Window, Rayfield)
+        end
+    end
+})
+
+HomeTab:CreateButton({
+    Name = "⚡ Load Speed Hack",
+    Callback = function()
+        local speedModule = loadModule("Universal/Speed.lua")
+        if speedModule then
+            speedModule(Window, Rayfield)
+        end
+    end
+})
+
+-- Supported Games Tab
+local GamesTab = Window:CreateTab("🎮 Supported Games")
+
+GamesTab:CreateSection("Available Games")
+
+-- Create a button for each supported game
 for placeId, gameInfo in pairs(SupportedGames) do
-    local GameSection = GamesTab:CreateSection(gameInfo.Name)
-    
-    GamesTab:CreateParagraph({
-        Title = gameInfo.Name,
-        Content = gameInfo.Description .. "\n\nPlace ID: " .. placeId
-    })
-    
-    GamesTab:CreateLabel("Status: " .. (gameInfo.Verified and "✅ Verified" or "⚠️ Experimental"))
-    
-    -- Launch button for each game
     GamesTab:CreateButton({
-        Name = "Launch " .. gameInfo.Name,
+        Name = gameInfo.Name,
         Callback = function()
             if PlaceId == placeId then
-                -- Load game-specific script
-                loadGitHubModule(gameInfo.Loader)(Window, Rayfield)
-                Rayfield:Notify({
-                    Title = "Loading Game",
-                    Content = "Loading " .. gameInfo.Name .. " features...",
-                    Duration = 3
-                })
+                -- Load the correct game script
+                local gameModule = loadModule(gameInfo.Loader)
+                if gameModule then
+                    gameModule(Window, Rayfield)
+                end
             else
                 Rayfield:Notify({
-                    Title = "Game Mismatch",
-                    Content = "This script is for " .. gameInfo.Name .. "\nCurrent game: " .. GameName,
+                    Title = "Wrong Game",
+                    Content = "This script is for " .. gameInfo.Name .. "\nYou are in: " .. GameName,
                     Duration = 5
                 })
             end
         end
     })
     
+    GamesTab:CreateLabel("Place ID: " .. placeId)
     GamesTab:CreateDivider()
 end
 
--- Universal Features Tab
-local UniversalTab = Window:CreateTab("⚙️ Universal Features", 4483362458)
-
-UniversalTab:CreateSection("Core Features")
-
-UniversalTab:CreateButton({
-    Name = "👁️ ESP System",
-    Callback = function()
-        local ESPModule = loadGitHubModule("Universal/ESP.lua")
-        if ESPModule then
-            ESPModule(Window, Rayfield)
-        end
-    end
-})
-
-UniversalTab:CreateButton({
-    Name = "🔍 Remote Finder",
-    Callback = function()
-        local RemoteFinderModule = loadGitHubModule("Universal/RemoteFinder.lua")
-        if RemoteFinderModule then
-            RemoteFinderModule(Window, Rayfield)
-        end
-    end
-})
-
-UniversalTab:CreateButton({
-    Name = "⚡ Speed Hack",
-    Callback = function()
-        local SpeedModule = loadGitHubModule("Universal/Speed.lua")
-        if SpeedModule then
-            SpeedModule(Window, Rayfield)
-        end
-    end
-})
-
-UniversalTab:CreateButton({
-    Name = "🎯 Aim Assist",
-    Callback = function()
-        local AimModule = loadGitHubModule("Universal/Aim.lua")
-        if AimModule then
-            AimModule(Window, Rayfield)
-        end
-    end
-})
-
 -- Settings Tab
-local SettingsTab = Window:CreateTab("⚙️ Settings", 4483362458)
+local SettingsTab = Window:CreateTab("⚙️ Settings")
 
 SettingsTab:CreateSection("Hub Settings")
 
 SettingsTab:CreateButton({
-    Name = "🔄 Refresh Game List",
-    Callback = function()
-        Rayfield:Notify({
-            Title = "Refreshing",
-            Content = "Checking for game updates...",
-            Duration = 3
-        })
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "📊 Hub Statistics",
-    Callback = function()
-        local supportedCount = 0
-        for _ in pairs(SupportedGames) do
-            supportedCount = supportedCount + 1
-        end
-        
-        Rayfield:Notify({
-            Title = "Hub Statistics",
-            Content = "Supported Games: " .. supportedCount .. "\nCurrent Game: " .. GameName,
-            Duration = 5
-        })
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "🚫 Unload Hub",
+    Name = "Unload Hub",
     Callback = function()
         Rayfield:Destroy()
-        Rayfield:Notify({
-            Title = "Hub Unloaded",
-            Content = "Sense ESP Hub has been closed",
-            Duration = 3
-        })
     end
 })
 
 -- Initial notification
 Rayfield:Notify({
-    Title = "Sense ESP Hub Loaded",
-    Content = "Welcome to the Universal Hub!\nGame: " .. GameName .. "\nPlace ID: " .. PlaceId,
-    Duration = 6,
-    Image = 4483362458
+    Title = "Universal ESP Hub Loaded",
+    Content = "Game: " .. GameName .. "\nPlace ID: " .. PlaceId,
+    Duration = 5
 })
