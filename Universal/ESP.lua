@@ -1,225 +1,260 @@
--- Universal ESP Module
--- Works in any game
+-- ESP System with Player Highlighting
 
 return function(Window, Rayfield)
     local Players = game:GetService("Players")
-    local Workspace = game:GetService("Workspace")
     local RunService = game:GetService("RunService")
     local LocalPlayer = Players.LocalPlayer
-    local Camera = Workspace.CurrentCamera
     
-    local ESPTab = Window:CreateTab("👁️ ESP", 4483362458)
-    ESPTab:CreateSection("Visual ESP Settings")
+    local ESPTab = Window:CreateTab("👁️ ESP System")
+    
+    ESPTab:CreateSection("Player Highlighting")
     
     -- ESP Variables
     local ESPEnabled = false
-    local ESPFolder = Instance.new("Folder")
-    ESPFolder.Name = "UniversalESPFolder"
-    ESPFolder.Parent = game.CoreGui
+    local HighlightInstances = {}
     
-    local Settings = {
-        Box = false,
-        Tracer = false,
-        Name = false,
-        Distance = false,
-        Health = false,
-        TeamColor = false,
-        Color = Color3.fromRGB(0, 255, 0),
-        MaxDistance = 2000
-    }
-    
-    local ESPObjects = {}
-    
-    local function clearESP()
-        for _, objects in pairs(ESPObjects) do
-            for _, obj in pairs(objects) do
-                if obj then obj:Destroy() end
-            end
-        end
-        ESPObjects = {}
-    end
-    
-    local function createESP(player)
-        if ESPObjects[player] then return end
+    -- Function to create highlight
+    local function createHighlight(player)
+        if HighlightInstances[player] then return end
         
-        local objects = {}
-        ESPObjects[player] = objects
+        local highlight = Instance.new("Highlight")
+        highlight.Name = player.Name .. "_Highlight"
+        highlight.FillColor = Color3.fromRGB(0, 255, 0)  -- Green
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = player.Character
         
-        -- Box
-        objects.Box = Instance.new("Frame")
-        objects.Box.Parent = ESPFolder
-        objects.Box.BackgroundTransparency = 1
-        objects.Box.BorderSizePixel = 2
-        objects.Box.BorderColor3 = Settings.Color
-        objects.Box.ZIndex = 10
-        objects.Box.Visible = false
+        -- Store reference
+        HighlightInstances[player] = highlight
         
-        -- Tracer
-        objects.Tracer = Instance.new("Frame")
-        objects.Tracer.Parent = ESPFolder
-        objects.Tracer.BackgroundColor3 = Settings.Color
-        objects.Tracer.BorderSizePixel = 0
-        objects.Tracer.ZIndex = 10
-        objects.Tracer.Visible = false
-        
-        -- Name
-        objects.Name = Instance.new("TextLabel")
-        objects.Name.Parent = ESPFolder
-        objects.Name.BackgroundTransparency = 1
-        objects.Name.Text = player.Name
-        objects.Name.TextColor3 = Settings.Color
-        objects.Name.TextSize = 14
-        objects.Name.Font = Enum.Font.SourceSansBold
-        objects.Name.ZIndex = 10
-        objects.Name.Visible = false
-        
-        -- Distance
-        objects.Distance = Instance.new("TextLabel")
-        objects.Distance.Parent = ESPFolder
-        objects.Distance.BackgroundTransparency = 1
-        objects.Distance.TextColor3 = Settings.Color
-        objects.Distance.TextSize = 12
-        objects.Distance.Font = Enum.Font.SourceSans
-        objects.Distance.ZIndex = 10
-        objects.Distance.Visible = false
-        
-        -- Update loop
-        local connection = RunService.RenderStepped:Connect(function()
-            if not ESPEnabled or not player.Character then
-                for _, obj in pairs(objects) do
-                    if obj then obj.Visible = false end
-                end
-                return
-            end
-            
-            local root = player.Character:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            
-            local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-            if not onScreen then
-                for _, obj in pairs(objects) do
-                    if obj then obj.Visible = false end
-                end
-                return
-            end
-            
-            -- Update visibility based on settings
-            if objects.Box then
-                objects.Box.Visible = Settings.Box
-                if objects.Box.Visible then
-                    objects.Box.Size = UDim2.new(0, 50, 0, 100)
-                    objects.Box.Position = UDim2.new(0, pos.X - 25, 0, pos.Y - 100)
-                end
-            end
-            
-            if objects.Name then
-                objects.Name.Visible = Settings.Name
-                if objects.Name.Visible then
-                    objects.Name.Position = UDim2.new(0, pos.X, 0, pos.Y - 120)
-                end
+        -- Track character changes
+        player.CharacterAdded:Connect(function(character)
+            wait(0.5)  -- Wait for character to load
+            if HighlightInstances[player] then
+                HighlightInstances[player].Parent = character
+            else
+                createHighlight(player)
             end
         end)
         
-        table.insert(objects, connection)
+        player.CharacterRemoving:Connect(function()
+            if HighlightInstances[player] then
+                HighlightInstances[player]:Destroy()
+                HighlightInstances[player] = nil
+            end
+        end)
+    end
+    
+    -- Function to remove highlight
+    local function removeHighlight(player)
+        if HighlightInstances[player] then
+            HighlightInstances[player]:Destroy()
+            HighlightInstances[player] = nil
+        end
+    end
+    
+    -- Function to update all highlights
+    local function updateHighlights()
+        for player, highlight in pairs(HighlightInstances) do
+            if player.Character and highlight then
+                highlight.Adornee = player.Character
+            elseif highlight then
+                highlight:Destroy()
+                HighlightInstances[player] = nil
+            end
+        end
     end
     
     -- ESP Toggle
-    ESPTab:CreateToggle({
-        Name = "Enable ESP",
+    local ESPToggle = ESPTab:CreateToggle({
+        Name = "Enable Player Highlight",
         CurrentValue = false,
         Callback = function(Value)
             ESPEnabled = Value
+            
             if Value then
+                -- Enable ESP for all players
                 for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer then
-                        createESP(player)
+                    if player ~= LocalPlayer and player.Character then
+                        createHighlight(player)
                     end
                 end
+                
+                -- Start update loop
+                RunService.Heartbeat:Connect(updateHighlights)
+                
+                Rayfield:Notify({
+                    Title = "ESP Enabled",
+                    Content = "Player highlighting activated",
+                    Duration = 3
+                })
             else
-                clearESP()
+                -- Disable ESP
+                for player, highlight in pairs(HighlightInstances) do
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+                HighlightInstances = {}
+                
+                Rayfield:Notify({
+                    Title = "ESP Disabled",
+                    Content = "Player highlighting removed",
+                    Duration = 3
+                })
             end
         end
     })
     
-    -- Feature toggles
-    ESPTab:CreateToggle({
-        Name = "Box ESP",
-        CurrentValue = false,
-        Callback = function(Value)
-            Settings.Box = Value
-        end
-    })
-    
-    ESPTab:CreateToggle({
-        Name = "Tracer ESP",
-        CurrentValue = false,
-        Callback = function(Value)
-            Settings.Tracer = Value
-        end
-    })
-    
-    ESPTab:CreateToggle({
-        Name = "Name ESP",
-        CurrentValue = false,
-        Callback = function(Value)
-            Settings.Name = Value
-        end
-    })
-    
-    ESPTab:CreateToggle({
-        Name = "Distance ESP",
-        CurrentValue = false,
-        Callback = function(Value)
-            Settings.Distance = Value
-        end
-    })
-    
-    ESPTab:CreateToggle({
-        Name = "Team Colors",
-        CurrentValue = false,
-        Callback = function(Value)
-            Settings.TeamColor = Value
-        end
-    })
+    -- Highlight Color Picker
+    local HighlightColor = Color3.fromRGB(0, 255, 0)
     
     ESPTab:CreateColorPicker({
-        Name = "ESP Color",
-        Color = Settings.Color,
+        Name = "Highlight Color",
+        Color = HighlightColor,
         Callback = function(Color)
-            Settings.Color = Color
+            HighlightColor = Color
+            for _, highlight in pairs(HighlightInstances) do
+                if highlight then
+                    highlight.FillColor = Color
+                end
+            end
         end
     })
     
+    -- Outline Color Picker
+    ESPTab:CreateColorPicker({
+        Name = "Outline Color",
+        Color = Color3.fromRGB(255, 255, 255),
+        Callback = function(Color)
+            for _, highlight in pairs(HighlightInstances) do
+                if highlight then
+                    highlight.OutlineColor = Color
+                end
+            end
+        end
+    })
+    
+    -- Transparency Slider
+    ESPTab:CreateSlider({
+        Name = "Fill Transparency",
+        Range = {0, 100},
+        Increment = 5,
+        Suffix = "%",
+        CurrentValue = 50,
+        Callback = function(Value)
+            for _, highlight in pairs(HighlightInstances) do
+                if highlight then
+                    highlight.FillTransparency = Value / 100
+                end
+            end
+        end
+    })
+    
+    -- Team Check Toggle
+    ESPTab:CreateToggle({
+        Name = "Team Color Mode",
+        CurrentValue = false,
+        Callback = function(Value)
+            if Value then
+                -- Use team colors
+                for player, highlight in pairs(HighlightInstances) do
+                    if highlight and player.Team then
+                        highlight.FillColor = player.Team.TeamColor.Color
+                    end
+                end
+            else
+                -- Use custom color
+                for _, highlight in pairs(HighlightInstances) do
+                    if highlight then
+                        highlight.FillColor = HighlightColor
+                    end
+                end
+            end
+        end
+    })
+    
+    -- Show Distance Toggle
+    ESPTab:CreateToggle({
+        Name = "Show Distance",
+        CurrentValue = false,
+        Callback = function(Value)
+            -- Distance display logic would go here
+        end
+    })
+    
+    -- Max Distance Slider
     ESPTab:CreateSlider({
         Name = "Max Distance",
         Range = {0, 5000},
-        Increment = 50,
+        Increment = 100,
         Suffix = "studs",
         CurrentValue = 2000,
         Callback = function(Value)
-            Settings.MaxDistance = Value
+            -- Distance filtering logic
         end
     })
     
-    -- Player connections
+    -- Refresh Button
+    ESPTab:CreateButton({
+        Name = "Refresh ESP",
+        Callback = function()
+            -- Remove all highlights
+            for player, highlight in pairs(HighlightInstances) do
+                if highlight then
+                    highlight:Destroy()
+                end
+            end
+            HighlightInstances = {}
+            
+            -- Recreate for all players
+            if ESPEnabled then
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        createHighlight(player)
+                    end
+                end
+            end
+        end
+    })
+    
+    -- Player added/removed connections
     Players.PlayerAdded:Connect(function(player)
         if ESPEnabled then
-            createESP(player)
+            player.CharacterAdded:Connect(function()
+                wait(0.5)
+                if ESPEnabled then
+                    createHighlight(player)
+                end
+            end)
         end
     end)
     
     Players.PlayerRemoving:Connect(function(player)
-        if ESPObjects[player] then
-            for _, obj in pairs(ESPObjects[player]) do
-                if obj then obj:Destroy() end
-            end
-            ESPObjects[player] = nil
-        end
+        removeHighlight(player)
     end)
     
+    -- Initialize for existing players
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            createHighlight(player)
+        end
+    end
+    
     Rayfield:Notify({
-        Title = "Universal ESP Loaded",
-        Content = "ESP features enabled",
+        Title = "ESP System Loaded",
+        Content = "Player highlighting ready",
         Duration = 3
     })
+    
+    return {
+        Enable = function()
+            ESPToggle:Set(true)
+        end,
+        Disable = function()
+            ESPToggle:Set(false)
+        end
+    }
 end
