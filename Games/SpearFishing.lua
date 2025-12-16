@@ -1,20 +1,24 @@
--- Spear Fishing Simulator (PlaceId: 101953168527257)
--- Game-specific features
+-- Spear Fishing Simulator Script
+-- PlaceId: 101953168527257
 
 return function(Window, Rayfield)
-    -- Create main tab for game features
-    local GameTab = Window:CreateTab("🎣 Spear Fishing", 4483362458)
+    -- Create main tab for game
+    local GameTab = Window:CreateTab("🎣 Spear Fishing")
     
-    GameTab:CreateSection("Fishing Features")
+    GameTab:CreateSection("Auto Farming")
     
-    -- Auto Fish
+    -- Auto Fish Toggle
+    local AutoFishEnabled = false
     GameTab:CreateToggle({
         Name = "Auto Fish",
         CurrentValue = false,
         Callback = function(Value)
+            AutoFishEnabled = Value
+            
             if Value then
                 spawn(function()
-                    while wait(1) do
+                    while AutoFishEnabled and wait(1) do
+                        -- Fire fish remote
                         local args = {
                             [1] = "Water",
                             [2] = CFrame.new(0, 0, 0),
@@ -29,14 +33,17 @@ return function(Window, Rayfield)
         end
     })
     
-    -- Auto Collect
+    -- Auto Collect Toggle
+    local AutoCollectEnabled = false
     GameTab:CreateToggle({
         Name = "Auto Collect Fish",
         CurrentValue = false,
         Callback = function(Value)
+            AutoCollectEnabled = Value
+            
             if Value then
                 spawn(function()
-                    while wait(0.5) do
+                    while AutoCollectEnabled and wait(0.5) do
                         game:GetService("ReplicatedStorage").Remotes.SendFishRF:InvokeServer()
                     end
                 end)
@@ -50,58 +57,16 @@ return function(Window, Rayfield)
         CurrentValue = false,
         Callback = function(Value)
             if Value then
-                local oxygen = game:GetService("Players").LocalPlayer.PlayerScripts:FindFirstChild("Swimming")
-                if oxygen then
-                    oxygen.Oxygen.Value = 100
-                    oxygen.Oxygen.Changed:Connect(function()
-                        oxygen.Oxygen.Value = 100
+                local playerScripts = game:GetService("Players").LocalPlayer.PlayerScripts
+                local swimming = playerScripts:FindFirstChild("Swimming")
+                
+                if swimming and swimming:FindFirstChild("Oxygen") then
+                    swimming.Oxygen.Value = 100
+                    swimming.Oxygen.Changed:Connect(function()
+                        swimming.Oxygen.Value = 100
                     end)
                 end
             end
-        end
-    })
-    
-    -- Teleport to Spots
-    GameTab:CreateSection("Teleport")
-    
-    local Spots = {"Deep Ocean", "Coral Reef", "Shipwreck", "Iceberg"}
-    
-    GameTab:CreateDropdown({
-        Name = "Fishing Spots",
-        Options = Spots,
-        CurrentOption = Spots[1],
-        Callback = function(Option)
-            -- Add teleport coordinates here
-            Rayfield:Notify({
-                Title = "Teleporting",
-                Content = "Going to: " .. Option,
-                Duration = 3
-            })
-        end
-    })
-    
-    -- Stats Section
-    GameTab:CreateSection("Stats")
-    
-    GameTab:CreateSlider({
-        Name = "Walk Speed",
-        Range = {16, 100},
-        Increment = 1,
-        Suffix = "studs",
-        CurrentValue = 16,
-        Callback = function(Value)
-            game:GetService("Players").LocalPlayer.Character.Humanoid.WalkSpeed = Value
-        end
-    })
-    
-    GameTab:CreateSlider({
-        Name = "Jump Power",
-        Range = {50, 200},
-        Increment = 5,
-        Suffix = "power",
-        CurrentValue = 50,
-        Callback = function(Value)
-            game:GetService("Players").LocalPlayer.Character.Humanoid.JumpPower = Value
         end
     })
     
@@ -113,6 +78,7 @@ return function(Window, Rayfield)
         Callback = function()
             game:GetService("ReplicatedStorage").Remotes.DailyRE:FireServer()
             game:GetService("ReplicatedStorage").Remotes.OnlineRewardRF:InvokeServer()
+            
             Rayfield:Notify({
                 Title = "Daily Rewards",
                 Content = "Claimed all daily rewards!",
@@ -125,6 +91,7 @@ return function(Window, Rayfield)
         Name = "Rebirth Now",
         Callback = function()
             game:GetService("ReplicatedStorage").Remotes.RebirthLoadRF:InvokeServer()
+            
             Rayfield:Notify({
                 Title = "Rebirth",
                 Content = "Performed rebirth!",
@@ -133,9 +100,67 @@ return function(Window, Rayfield)
         end
     })
     
+    -- Stats
+    GameTab:CreateSection("Player Stats")
+    
+    GameTab:CreateSlider({
+        Name = "Walk Speed",
+        Range = {16, 150},
+        Increment = 1,
+        Suffix = "studs",
+        CurrentValue = 16,
+        Callback = function(Value)
+            local character = game:GetService("Players").LocalPlayer.Character
+            if character and character:FindFirstChild("Humanoid") then
+                character.Humanoid.WalkSpeed = Value
+            end
+        end
+    })
+    
+    GameTab:CreateSlider({
+        Name = "Jump Power",
+        Range = {50, 250},
+        Increment = 5,
+        Suffix = "power",
+        CurrentValue = 50,
+        Callback = function(Value)
+            local character = game:GetService("Players").LocalPlayer.Character
+            if character and character:FindFirstChild("Humanoid") then
+                character.Humanoid.JumpPower = Value
+            end
+        end
+    })
+    
+    -- Teleport
+    GameTab:CreateSection("Teleport")
+    
+    local FishingSpots = {
+        "Deep Ocean",
+        "Coral Reef", 
+        "Shipwreck",
+        "Iceberg Area",
+        "Treasure Bay"
+    }
+    
+    GameTab:CreateDropdown({
+        Name = "Teleport to Spot",
+        Options = FishingSpots,
+        CurrentOption = FishingSpots[1],
+        Callback = function(Option)
+            Rayfield:Notify({
+                Title = "Teleporting",
+                Content = "Going to: " .. Option,
+                Duration = 3
+            })
+            
+            -- You would add actual teleport coordinates here
+            -- Example: game.Players.LocalPlayer.Character:MoveTo(Vector3.new(x, y, z))
+        end
+    })
+    
     Rayfield:Notify({
         Title = "Spear Fishing Script Loaded",
-        Content = "All game features enabled!",
+        Content = "All features ready!",
         Duration = 4
     })
 end
